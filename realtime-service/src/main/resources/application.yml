@@ -1,0 +1,41 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: realtime-service
+  rabbitmq:
+    host: ${RABBIT_HOST:127.0.0.1}
+    port: ${RABBIT_PORT:5672}
+    username: ${RABBIT_USERNAME:guest}
+    password: ${RABBIT_PASSWORD:guest}
+    virtual-host: ${RABBIT_VHOST:/}
+    listener:
+      simple:
+        acknowledge-mode: auto
+        prefetch: 1
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          initial-interval: 1s
+          multiplier: 2
+          max-interval: 30s
+          max-attempts: 3
+
+pi:
+  rabbit:
+    exchange: ${RABBIT_EXCHANGE:sensors}
+    dlx: ${RABBIT_DLX:sensors.dlx}
+    routing-key-reading: ${RABBIT_ROUTING_KEY:sensor.reading}
+    queue-realtime: q.realtime.reading
+    queue-alert: q.alert.reading
+    queue-alert-dlq: q.alert.reading.dlq
+    routing-key-alert-dead: sensor.reading.dead
+  bootstrap:
+    django-base-url: ${DJANGO_BASE_URL:http://127.0.0.1:8000}
+    enabled: ${BOOTSTRAP_ENABLED:false}
+
+logging:
+  level:
+    com.piqueue.realtime: INFO
+    org.springframework.amqp: INFO
