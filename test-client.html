@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <title>pi-env realtime test client</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 24px; max-width: 820px; }
+    h1 { margin-bottom: 4px; }
+    .sub { color: #666; margin-bottom: 16px; }
+    #status { padding: 6px 10px; border-radius: 4px; display: inline-block; font-size: 13px; }
+    .ok   { background: #d4edda; color: #155724; }
+    .bad  { background: #f8d7da; color: #721c24; }
+    .wait { background: #fff3cd; color: #856404; }
+    .latest { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; margin: 16px 0; padding: 12px; background: #f6f8fa; border-radius: 6px; }
+    .latest div { font-size: 14px; }
+    .latest b { color: #0366d6; }
+    #log { font-family: ui-monospace, Menlo, monospace; font-size: 12px; background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 6px; height: 360px; overflow-y: auto; white-space: pre-wrap; }
+    .row-snap { color: #ffd866; }
+    .row-live { color: #a6e22e; }
+    .row-info { color: #66d9ef; }
+    button { padding: 6px 12px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>pi-env realtime test client</h1>
+  <div class="sub">连 <code id="url">ws://127.0.0.1:8081/ws/readings</code> · 看 Java realtime-service 在广播什么</div>
+
+  <div>
+    <span id="status" class="wait">未连接</span>
+    <button onclick="connect()">连接</button>
+    <button onclick="ws && ws.close()">断开</button>
+    <button onclick="document.getElementById('log').textContent=''">清屏</button>
+    <span id="count" style="margin-left:12px;color:#666;font-size:13px;">收到 0 条</span>
+  </div>
+
+  <h3 style="margin-top:24px;">最新读数（按 deviceId 分组）</h3>
+  <div id="latest" class="latest"><div style="grid-column:1/-1;color:#999;">还没收到消息</div></div>
+
+  <h3>原始消息流（每条 = Java 一次 broadcast）</h3>
+  <div id="log"></div>
+
+<script>
+  const url = document.getElementById('url').textContent;
+  const statusEl = document.getElementById('status');
+  const logEl = document.getElementById('log');
+  const countEl = document.getElementById('count');
+  const latestEl = document.getElementById('latest');
+  let ws = null;
+  let count = 0;
+  const latest = {};
+
+  function setStatus(text, cls) {
+    statusEl.textContent = text;
+    statusEl.className = cls;
+  }
+
+  function log(line, cls) {
+    const t = new Date().toLocaleTimeString();
+    const row = document.createElement('div');
+    row.className = cls || '';
+    row.textContent = `[${t}] ${line}`;
+    logEl.appendChild(row);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function renderLatest() {
+    const devices = Object.keys(latest).sort();
+    if (devices.length === 0) { latestEl.innerHTML = '<div style="grid-column:1/-1;color:#999;">还没收到消息</div>'; return; }
+    latestEl.innerHTML = devices.map(d => {
+      const e = latest[d];
+      return `<div><b>${d}</b><br>温度 ${e.temperatureC?.toFixed(1) ?? '-'} ℃ · 湿度 ${e.humidityPct?.toFixed(1) ?? '-'} %</div>
+              <div style="text-align:right;color:#666;font-size:12px;">recordedAt<br>${e.recordedAt ?? '-'}</div>`;
+    }).join('');
+  }
+
+  function connect() {
+    if (ws && ws.readyState !== WebSocket.CLOSED) { log('已经连着，忽略', 'row-info'); return; }
+    setStatus('连接中...', 'wait');
+    ws = new WebSocket(url);
+    let isFirstBatch = true;          // 服务器一上来先推 snapshot，几乎瞬间到齐
+    let firstBatchTimer = null;
+
+    ws.onopen = () => {
+      setStatus('已连接 ✓', 'ok');
+      log('WebSocket 打开', 'row-info');
+      log('—— 预期：先收到 snapshot（每个 deviceId 当前缓存的最新一条），然后才是后续 live 推送 ——', 'row-info');
+      // 200ms 内到的算 snapshot，之后到的算实时
+      firstBatchTimer = setTimeout(() => { isFirstBatch = false; log('—— snapshot 阶段结束，后面都是实时 broadcast ——', 'row-info'); }, 300);
+    };
+
+    ws.onmessage = (msg) => {
+      count++;
+      countEl.textContent = `收到 ${count} 条`;
+      let data;
+      try { data = JSON.parse(msg.data); } catch { log('非 JSON: ' + msg.data); return; }
+      if (data.deviceId) latest[data.deviceId] = data;
+      renderLatest();
+      const tag = isFirstBatch ? 'snapshot' : 'live';
+      const cls = isFirstBatch ? 'row-snap' : 'row-live';
+      log(`[${tag}] ${data.deviceId} t=${data.temperatureC} h=${data.humidityPct} @${data.recordedAt}`, cls);
+    };
+
+    ws.onclose = (e) => {
+      setStatus('已断开', 'bad');
+      log(`WebSocket 关闭 (code=${e.code})`, 'row-info');
+      clearTimeout(firstBatchTimer);
+    };
+    ws.onerror = () => {
+      setStatus('连接失败', 'bad');
+      log('WebSocket 错误（Java 服务没启动？端口不对？）', 'row-info');
+    };
+  }
+
+  // 自动尝试连一次
+  connect();
+</script>
+</body>
+</html>
