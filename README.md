@@ -4,8 +4,6 @@ Java consumer side for the pi-env sensor pipeline. Consumes `sensor.reading`
 events from RabbitMQ produced by the Django collector in `pi-env-backend`
 (`feature/rabbitmq-publisher`).
 
-Plan reference: `coding doc ai/java-realtime-rabbitmq-plan.md`.
-
 ## Layout
 
 ```
