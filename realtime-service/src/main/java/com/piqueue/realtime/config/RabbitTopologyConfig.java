@@ -35,7 +35,10 @@ public class RabbitTopologyConfig {
 
     @Bean
     public Queue realtimeReadingQueue() {
-        return QueueBuilder.durable(props.queueRealtime()).build();
+        return QueueBuilder.durable(props.queueRealtime())
+                .withArgument("x-dead-letter-exchange", props.dlx())
+                .withArgument("x-dead-letter-routing-key", props.routingKeyReadingDead())
+                .build();
     }
 
     @Bean
@@ -52,6 +55,11 @@ public class RabbitTopologyConfig {
     }
 
     @Bean
+    public Queue realtimeReadingDlq() {
+        return QueueBuilder.durable(props.queueRealtimeDlq()).build();
+    }
+
+    @Bean
     public Binding realtimeBinding(Queue realtimeReadingQueue, TopicExchange sensorsExchange) {
         return BindingBuilder.bind(realtimeReadingQueue).to(sensorsExchange).with(props.routingKeyReading());
     }
@@ -64,6 +72,11 @@ public class RabbitTopologyConfig {
     @Bean
     public Binding alertDlqBinding(Queue alertReadingDlq, TopicExchange sensorsDlxExchange) {
         return BindingBuilder.bind(alertReadingDlq).to(sensorsDlxExchange).with(props.routingKeyAlertDead());
+    }
+
+    @Bean
+    public Binding realtimeDlqBinding(Queue realtimeReadingDlq, TopicExchange sensorsDlxExchange) {
+        return BindingBuilder.bind(realtimeReadingDlq).to(sensorsDlxExchange).with(props.routingKeyReadingDead());
     }
 
     @Bean
