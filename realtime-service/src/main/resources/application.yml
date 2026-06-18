@@ -31,6 +31,8 @@ pi:
     queue-alert: q.alert.reading
     queue-alert-dlq: q.alert.reading.dlq
     routing-key-alert-dead: sensor.reading.dead
+    queue-realtime-dlq: q.realtime.reading.dlq
+    routing-key-reading-dead: sensor.reading.realtime.dead
   bootstrap:
     django-base-url: ${DJANGO_BASE_URL:http://127.0.0.1:8000}
     enabled: ${BOOTSTRAP_ENABLED:false}
