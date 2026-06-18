@@ -20,6 +20,10 @@ public record RabbitProperties(
         @NotBlank
         String queueAlertDlq,
         @NotBlank
-        String routingKeyAlertDead
+        String routingKeyAlertDead,
+        @NotBlank
+        String queueRealtimeDlq,
+        @NotBlank
+        String routingKeyReadingDead
 ) {
 }
